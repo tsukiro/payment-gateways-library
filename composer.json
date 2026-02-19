@@ -1,5 +1,5 @@
 {
-    "name": "tsukiro/raion-payment-gateways-library",
+    "name": "tsukiro/payment-gateways-library",
     "description": "Esta librería unifica y simplifica la implementación de las pasarelas de pago de mercado pago, webpay y flow dejandolas en un único marco de trabajo para su integración",
     "type": "library",
     "require": {
