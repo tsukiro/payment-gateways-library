@@ -1,4 +1,4 @@
-[![PHP Composer](https://github.com/tsukiro/raion-payment-gateways-library/actions/workflows/php.yml/badge.svg)](https://github.com/tsukiro/raion-payment-gateways-library/actions/workflows/php.yml)
+[![PHP Composer](https://github.com/tsukiro/payment-gateways-library/actions/workflows/php.yml/badge.svg)](https://github.com/tsukiro/payment-gateways-library/actions/workflows/php.yml)
 
 # Raion Payment Gateways Library
 
