@@ -1,7 +1,9 @@
 <?php
 namespace Raion\Gateways\Gateways;
 
+use Psr\Log\LoggerInterface;
 use Raion\Gateways\Config\ConfigKeys;
+use Raion\Gateways\Logging\NullLogger;
 use Raion\Gateways\Models\GatewayResponse;
 use Raion\Gateways\Config\GatewayConfig;
 use Exception;
@@ -9,6 +11,7 @@ use Raion\Gateways\Interfaces\GatewayInterface;
 use Raion\Gateways\Models\Gateways;
 use GuzzleHttp\Exception\GuzzleException;
 use Raion\Gateways\Exceptions\TransactionException;
+use Raion\Gateways\Validation\TransactionValidator;
 use Transbank\Webpay\Options;
 use Transbank\Webpay\WebpayPlus\Exceptions\TransactionCommitException;
 use Transbank\Webpay\WebpayPlus\Exceptions\TransactionCreateException;
@@ -19,11 +22,13 @@ class WebpayGateway implements GatewayInterface
 {
     private Transaction $transaction;
     private string $baseUrl;
+    private LoggerInterface $logger;
+    private TransactionValidator $validator;
 
     /**
      * Constructor que inicializa la configuración de Transbank
      */
-    public function __construct()
+    public function __construct(?LoggerInterface $logger = null, ?TransactionValidator $validator = null)
     {
         $apiKey = GatewayConfig::get("TRANSBANK_API_KEY", Options::INTEGRATION_API_KEY);
         $commerceCode = GatewayConfig::get("TRANSBANK_COMMERCE_CODE", '597055555532');
@@ -32,6 +37,16 @@ class WebpayGateway implements GatewayInterface
         $options = new Options($apiKey, $commerceCode, $environment);
         $this->transaction = new Transaction($options);
         $this->baseUrl = GatewayConfig::get(ConfigKeys::BASE_URL);
+        $this->logger = $logger ?? new NullLogger();
+        $this->validator = $validator ?? new TransactionValidator();
+    }
+
+    /**
+     * Set a logger instance
+     */
+    public function setLogger(LoggerInterface $logger): void
+    {
+        $this->logger = $logger;
     }
 
     /**
@@ -47,6 +62,24 @@ class WebpayGateway implements GatewayInterface
      */
     public function createTransaction(string $id, int $amount, string $currency, string $description, string $email): GatewayResponse
     {
+        $this->logger->info('Creating Webpay transaction', [
+            'gateway' => 'webpay',
+            'order_id' => $id,
+            'amount' => $amount
+        ]);
+
+        // Validar parámetros
+        try {
+            $this->validator->validateTransaction('webpay', $id, $amount, $currency, $description, $email);
+        } catch (\Exception $e) {
+            $this->logger->error('Validation failed for Webpay transaction', [
+                'gateway' => 'webpay',
+                'order_id' => $id,
+                'error' => $e->getMessage()
+            ]);
+            throw $e;
+        }
+
         try {
             // We use $description as sessionId to have a more meaningful value
             $sessionId = substr(preg_replace('/[^a-zA-Z0-9]/', '', $description), 0, 20);
@@ -67,8 +100,19 @@ class WebpayGateway implements GatewayInterface
                 $confirmationUrl
             );
 
+            $this->logger->info('Webpay transaction created successfully', [
+                'gateway' => 'webpay',
+                'order_id' => $id,
+                'token' => $resp->getToken()
+            ]);
+
             return new GatewayResponse($resp->getToken(), $resp->getUrl());
         } catch (TransactionCreateException | GuzzleException $e) {
+            $this->logger->error('Failed to create Webpay transaction', [
+                'gateway' => 'webpay',
+                'order_id' => $id,
+                'error' => $e->getMessage()
+            ]);
             throw TransactionException::creationFailed('Webpay', $e->getMessage(), $e);
         }
     }

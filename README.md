@@ -194,6 +194,178 @@ GatewayConfig::setConfig(['APIKEY' => getenv('FLOW_APIKEY')]);
 
 ## 🧪 Testing
 
+```bash
+vendor/bin/phpunit
+```
+
+## 📝 Sistema de Logging (PSR-3)
+
+La librería implementa el estándar PSR-3 de logging para facilitar el debugging y auditoría de transacciones.
+
+### Loggers Disponibles
+
+#### NullLogger (por defecto)
+No registra nada. Ideal para producción sin overhead de performance:
+
+```php
+use Raion\Gateways\Logging\NullLogger;
+
+$logger = new NullLogger();
+$gateway = Selector::GetGatewayInstance(Gateways::Flow, $logger);
+```
+
+#### FileLogger
+Registra eventos en archivo con niveles configurables:
+
+```php
+use Raion\Gateways\Logging\FileLogger;
+use Psr\Log\LogLevel;
+
+// Registrar solo INFO y superiores
+$logger = new FileLogger(
+    logFile: __DIR__ . '/logs/payment.log',
+    minLevel: LogLevel::INFO
+);
+
+$gateway = Selector::GetGatewayInstance(Gateways::Flow, $logger);
+```
+
+### Niveles de Log
+
+- `DEBUG`: Información detallada de debugging
+- `INFO`: Eventos informativos (transacción creada, completada)
+- `NOTICE`: Eventos normales pero significativos
+- `WARNING`: Advertencias
+- `ERROR`: Errores en tiempo de ejecución
+- `CRITICAL`: Condiciones críticas
+- `ALERT`: Requiere acción inmediata
+- `EMERGENCY`: Sistema inutilizable
+
+### Ejemplo de Logs
+
+```
+[2024-02-19 18:00:00] INFO: Creating Flow transaction {"gateway":"flow","order_id":"ORDER-123","amount":10000}
+[2024-02-19 18:00:01] INFO: Flow transaction created successfully {"gateway":"flow","token":"ABC123"}
+[2024-02-19 18:00:05] ERROR: Flow transaction creation failed {"gateway":"flow","error":"Invalid API key"}
+```
+
+### Logger Personalizado
+
+Puedes usar cualquier logger compatible con PSR-3:
+
+```php
+use Monolog\Logger;
+use Monolog\Handler\StreamHandler;
+
+$logger = new Logger('payments');
+$logger->pushHandler(new StreamHandler(__DIR__ . '/payment.log'));
+
+$gateway = Selector::GetGatewayInstance(Gateways::Flow, $logger);
+```
+
+## ✅ Validación Automática
+
+La librería valida automáticamente todos los parámetros antes de enviarlos al gateway.
+
+### Reglas de Validación
+
+#### ID de Transacción
+- Longitud: 1-255 caracteres
+- Solo alfanuméricos, guiones (-) y guiones bajos (_)
+
+```php
+// ✅ Válido
+$gateway->createTransaction('ORDER-123', ...);
+
+// ❌ Inválido - caracteres especiales
+$gateway->createTransaction('ORDER@123!', ...);
+```
+
+#### Monto
+
+Montos mínimos por gateway:
+
+| Gateway | Monto Mínimo |
+|---------|--------------|
+| Flow | 50 (CLP/UF) |
+| Webpay | 50 (CLP) |
+| MercadoPago | 1 (cualquier moneda) |
+
+Monto máximo: 999,999,999 para todos
+
+```php
+// ✅ Válido para Flow
+$gateway->createTransaction('ORDER-123', 10000, 'CLP', ...);
+
+// ❌ Inválido - muy bajo para Flow
+$gateway->createTransaction('ORDER-123', 40, 'CLP', ...);
+```
+
+#### Moneda
+
+Monedas soportadas por gateway:
+
+| Gateway | Monedas |
+|---------|---------|
+| Flow | CLP, UF |
+| Webpay | CLP |
+| MercadoPago | CLP, ARS, BRL, MXN, USD |
+
+```php
+// ✅ Válido
+$gateway->createTransaction('ORDER-123', 10000, 'CLP', ...);
+
+// ❌ Inválido - Flow no soporta USD
+$flowGateway->createTransaction('ORDER-123', 10000, 'USD', ...);
+```
+
+#### Descripción
+- Longitud: 3-500 caracteres
+
+```php
+// ✅ Válido
+$gateway->createTransaction(..., 'Compra de producto');
+
+// ❌ Inválido - muy corta
+$gateway->createTransaction(..., 'OK');
+```
+
+#### Email
+- Formato RFC-compliant
+- Máximo 254 caracteres
+
+```php
+// ✅ Válido
+$gateway->createTransaction(..., 'user@example.com');
+
+// ❌ Inválido
+$gateway->createTransaction(..., 'invalid-email');
+```
+
+### Validación Manual
+
+```php
+use Raion\Gateways\Validation\TransactionValidator;
+use Raion\Gateways\Exceptions\ValidationException;
+
+$validator = new TransactionValidator();
+
+try {
+    $validator->validateTransaction(
+        gateway: 'flow',
+        id: 'ORDER-123',
+        amount: 10000,
+        currency: 'CLP',
+        description: 'Test product',
+        email: 'user@example.com'
+    );
+} catch (ValidationException $e) {
+    echo "Error: " . $e->getMessage();
+}
+```
+
+## 🧪 Testing
+
 ```php
 use PHPUnit\Framework\TestCase;
 use Raion\Gateways\Config\ConfigKeys;
