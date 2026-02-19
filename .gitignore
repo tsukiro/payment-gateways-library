@@ -1,0 +1,8 @@
+/vendor
+/build
+.phpunit.cache
+.idea
+.vscode
+composer.lock
+# Environment variables con credenciales
+.env
