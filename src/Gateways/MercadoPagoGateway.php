@@ -2,11 +2,14 @@
 
 namespace Raion\Gateways\Gateways;
 
+use Psr\Log\LoggerInterface;
 use Raion\Gateways\Config\ConfigKeys;
 use Raion\Gateways\Config\GatewayConfig;
 use Raion\Gateways\Interfaces\GatewayInterface;
+use Raion\Gateways\Logging\NullLogger;
 use Raion\Gateways\Models\GatewayResponse;
 use Raion\Gateways\Exceptions\TransactionException;
+use Raion\Gateways\Validation\TransactionValidator;
 
 use MercadoPago\Client\Common\RequestOptions;
 use MercadoPago\Client\Preference\PreferenceClient;
@@ -17,7 +20,10 @@ use Raion\Gateways\Models\Gateways;
 
 class MercadoPagoGateway implements GatewayInterface
 {
-    public function __construct()
+    private LoggerInterface $logger;
+    private TransactionValidator $validator;
+
+    public function __construct(?LoggerInterface $logger = null, ?TransactionValidator $validator = null)
     {
         
         MercadoPagoConfig::setAccessToken(GatewayConfig::get(
@@ -28,6 +34,17 @@ class MercadoPagoGateway implements GatewayInterface
             ConfigKeys::MERCADOPAGO_RUNTIME_ENVIRONMENT,
             MercadoPagoConfig::LOCAL
         ));
+
+        $this->logger = $logger ?? new NullLogger();
+        $this->validator = $validator ?? new TransactionValidator();
+    }
+
+    /**
+     * Set a logger instance
+     */
+    public function setLogger(LoggerInterface $logger): void
+    {
+        $this->logger = $logger;
     }
 
     /**
@@ -36,6 +53,25 @@ class MercadoPagoGateway implements GatewayInterface
      */
     public function createTransaction(string $id, int $amount, string $currency, string $description, string $email): GatewayResponse
     {
+        $this->logger->info('Creating MercadoPago transaction', [
+            'gateway' => 'mercadopago',
+            'order_id' => $id,
+            'amount' => $amount,
+            'currency' => $currency
+        ]);
+
+        // Validar parámetros
+        try {
+            $this->validator->validateTransaction('mercadopago', $id, $amount, $currency, $description, $email);
+        } catch (\Exception $e) {
+            $this->logger->error('Validation failed for MercadoPago transaction', [
+                'gateway' => 'mercadopago',
+                'order_id' => $id,
+                'error' => $e->getMessage()
+            ]);
+            throw $e;
+        }
+
         try {
 
             $client = new PreferenceClient();
@@ -77,20 +113,25 @@ class MercadoPagoGateway implements GatewayInterface
                 "external_reference" => $id,
             ];
 
-            echo "1 Getting response Mercado Pago";
             $accessToken = GatewayConfig::get(ConfigKeys::MERCADOPAGO_ACCESS_TOKEN);
-            echo "2 Getting response Mercado Pago";
             $options = new RequestOptions();
-            echo "3 Getting response Mercado Pago";
             $options->setAccessToken($accessToken);
             
-            echo "4 Getting response Mercado Pago";
             $preference = $client->create($config, $options);
-            echo "5 Getting response Mercado Pago";
-            //echo $preference->getResponse();
+
+            $this->logger->info('MercadoPago transaction created successfully', [
+                'gateway' => 'mercadopago',
+                'order_id' => $id,
+                'preference_id' => $preference->id
+            ]);
 
             return new GatewayResponse($preference->id, $baseUrl . "/mercadopago/" . $id);
         } catch (MPApiException $exception) {
+            $this->logger->error('MercadoPago transaction creation failed', [
+                'gateway' => 'mercadopago',
+                'order_id' => $id,
+                'error' => $exception->getMessage()
+            ]);
             throw TransactionException::creationFailed('MercadoPago', $exception->getMessage(), $exception);
         }
     }

@@ -2,8 +2,10 @@
 
 namespace Raion\Gateways\Gateways;
 
+use Psr\Log\LoggerInterface;
 use Raion\Gateways\Config\ConfigKeys;
 use Raion\Gateways\Config\GatewayConfig;
+use Raion\Gateways\Logging\NullLogger;
 use Raion\Gateways\Models\GatewayResponse;
 use Raion\Gateways\Models\Flow\FlowVerbs;
 use Raion\Gateways\Models\Flow\FlowConstants;
@@ -16,6 +18,7 @@ use Raion\Gateways\Models\Gateways;
 use Raion\Gateways\Models\Flow\FlowConfig;
 use Raion\Gateways\Models\Flow\FlowHttpClient;
 use Raion\Gateways\Models\Flow\FlowSigner;
+use Raion\Gateways\Validation\TransactionValidator;
 
 class FlowGateway implements GatewayInterface
 {
@@ -25,15 +28,29 @@ class FlowGateway implements GatewayInterface
     private FlowHttpClient $httpClient;
     private FlowSigner $signer;
     private FlowConfig $config;
+    private LoggerInterface $logger;
+    private TransactionValidator $validator;
 
     public function __construct(
         ?FlowHttpClient $httpClient = null,
         ?FlowSigner $signer = null,
-        ?FlowConfig $config = null
+        ?FlowConfig $config = null,
+        ?LoggerInterface $logger = null,
+        ?TransactionValidator $validator = null
     ) {
         $this->httpClient = $httpClient ?? new FlowHttpClient();
         $this->signer = $signer ?? new FlowSigner(GatewayConfig::get(ConfigKeys::FLOW_API_KEY), GatewayConfig::get(ConfigKeys::FLOW_SECRET_KEY));
         $this->config = $config ?? new FlowConfig();
+        $this->logger = $logger ?? new NullLogger();
+        $this->validator = $validator ?? new TransactionValidator();
+    }
+
+    /**
+     * Set a logger instance
+     */
+    public function setLogger(LoggerInterface $logger): void
+    {
+        $this->logger = $logger;
     }
 
     /**
@@ -50,6 +67,25 @@ class FlowGateway implements GatewayInterface
      */
     public function createTransaction(string $id, int $amount, string $currency, string $description, string $email): GatewayResponse
     {
+        $this->logger->info('Creating Flow transaction', [
+            'gateway' => 'flow',
+            'order_id' => $id,
+            'amount' => $amount,
+            'currency' => $currency
+        ]);
+
+        // Validar parámetros
+        try {
+            $this->validator->validateTransaction('flow', $id, $amount, $currency, $description, $email);
+        } catch (\Exception $e) {
+            $this->logger->error('Validation failed for Flow transaction', [
+                'gateway' => 'flow',
+                'order_id' => $id,
+                'error' => $e->getMessage()
+            ]);
+            throw $e;
+        }
+
         $baseUrl = GatewayConfig::get(ConfigKeys::BASE_URL);
         
         // Get callback URLs from config or use defaults
@@ -81,8 +117,18 @@ class FlowGateway implements GatewayInterface
             $operationResult = $this->send(FlowPaths::PaymentCreate, $params, FlowVerbs::POST);
 
             if (isset($operationResult["token"]) && isset($operationResult["url"])) {
+                $this->logger->info('Flow transaction created successfully', [
+                    'gateway' => 'flow',
+                    'order_id' => $id,
+                    'token' => $operationResult["token"]
+                ]);
                 return new GatewayResponse($operationResult["token"], $operationResult["url"]);
             } else {
+                $this->logger->error('Incomplete Flow API response', [
+                    'gateway' => 'flow',
+                    'order_id' => $id,
+                    'response' => json_encode($operationResult)
+                ]);
                 throw InvalidResponseException::incompleteResponse(
                     'Flow',
                     'token, url',
@@ -92,6 +138,11 @@ class FlowGateway implements GatewayInterface
         } catch (InvalidResponseException $e) {
             throw $e;
         } catch (\Exception $exception) {
+            $this->logger->error('Failed to create Flow transaction', [
+                'gateway' => 'flow',
+                'order_id' => $id,
+                'error' => $exception->getMessage()
+            ]);
             throw TransactionException::creationFailed('Flow', $exception->getMessage(), $exception);
         }
     }
