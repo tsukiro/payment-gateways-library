@@ -17,6 +17,7 @@ use MercadoPago\Exceptions\MPApiException;
 use MercadoPago\MercadoPagoConfig;
 use PSpell\Config;
 use Raion\Gateways\Models\Gateways;
+use Raion\Gateways\Utils\UrlHelper;
 
 class MercadoPagoGateway implements GatewayInterface
 {
@@ -124,8 +125,7 @@ class MercadoPagoGateway implements GatewayInterface
                 'order_id' => $id,
                 'preference_id' => $preference->id
             ]);
-
-            return new GatewayResponse($preference->id, $baseUrl . "/mercadopago/" . $id);
+            return new GatewayResponse($preference->id, GatewayConfig::get(ConfigKeys::MERCADOPAGO_REDIRECT_URL, UrlHelper::buildUrl($baseUrl, "/mercadopago/".$id)));
         } catch (MPApiException $exception) {
             $this->logger->error('MercadoPago transaction creation failed', [
                 'gateway' => 'mercadopago',

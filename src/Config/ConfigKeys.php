@@ -117,6 +117,11 @@ class ConfigKeys
      */
     public const MERCADOPAGO_RUNTIME_ENVIRONMENT = 'MERCADOPAGO_RUNTIME_ENVIRONMENT';
 
+        /**
+        * MercadoPago Redirect URL - URL de redirección para MercadoPago (opcional, si no se usa success/failure)
+        * Admite placeholder {id} para el ID de la orden
+        */
+    public const MERCADOPAGO_REDIRECT_URL = 'MERCADOPAGO_REDIRECT_URL';
     // ========================================
     // General Configuration Keys
     // ========================================
@@ -155,6 +160,7 @@ class ConfigKeys
             self::MERCADOPAGO_FAILURE_URL => 'MERCADOPAGO_FAILURE_URL',
             self::MERCADOPAGO_PENDING_URL => 'MERCADOPAGO_PENDING_URL',
             self::MERCADOPAGO_RUNTIME_ENVIRONMENT => 'MERCADOPAGO_RUNTIME_ENVIRONMENT',
+            self::MERCADOPAGO_REDIRECT_URL => 'MERCADOPAGO_REDIRECT_URL',
         ];
     }
 }
