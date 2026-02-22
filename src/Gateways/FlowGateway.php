@@ -282,4 +282,16 @@ class FlowGateway implements GatewayInterface
     {
         return $this->getTransactionInProcess($token);
     }
+
+    /**
+     * Confirm a transaction (unified method for TransactionManager)
+     *
+     * @param string $token Transaction token
+     * @return array Confirmation data
+     * @throws TransactionException
+     */
+    public function confirmTransaction(string $token): array
+    {
+        return $this->getTransactionInProcess($token);
+    }
 }

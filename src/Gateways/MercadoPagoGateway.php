@@ -172,6 +172,32 @@ class MercadoPagoGateway implements GatewayInterface
         // TODO: Implement getResultUrl() method.
     }
 
+    /**
+     * Confirm a transaction (unified method for TransactionManager)
+     *
+     * @param string $token Transaction token (preference ID)
+     * @return array Confirmation data
+     * @throws TransactionException
+     */
+    public function confirmTransaction(string $token): array
+    {
+        try {
+            $client = new PreferenceClient();
+            $preference = $client->get($token);
+            
+            // Convert preference object to array for consistency
+            return [
+                'id' => $preference->id,
+                'status' => 'pending', // MercadoPago requires additional payment info to get real status
+                'external_reference' => $preference->external_reference,
+                'init_point' => $preference->init_point,
+                'date_created' => $preference->date_created ?? null,
+            ];
+        } catch (MPApiException $e) {
+            throw TransactionException::processingFailed('MercadoPago', $e->getMessage(), $e);
+        }
+    }
+
     protected function authenticate()
     {
         // Getting the access token from .env file (create your own function)
