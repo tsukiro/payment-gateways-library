@@ -9,6 +9,9 @@ Librería PHP para integrar múltiples pasarelas de pago en Chile: Flow, Transba
 - ✅ Soporte para múltiples gateways: **Flow**, **Transbank/Webpay** y **MercadoPago**
 - ✅ Interfaz unificada para todos los gateways
 - ✅ **Configuración flexible**: mediante array o variables de entorno
+- ✅ **Caché PSR-16**: Almacenamiento temporal automático de transacciones
+- ✅ **Eventos PSR-14**: Sistema de eventos para hooks personalizados
+- ✅ **TransactionManager**: Orquestación simplificada del flujo de pagos
 - ✅ Fácil de usar y extender
 - ✅ Compatible con PHP 8.0+
 
@@ -17,6 +20,61 @@ Librería PHP para integrar múltiples pasarelas de pago en Chile: Flow, Transba
 ```bash
 composer require raion/payment-gateways-library
 ```
+
+## ✨ Nuevo: Arquitectura con Caché y Eventos
+
+La librería ahora soporta **PSR-16 (Simple Cache)** y **PSR-14 (Event Dispatcher)** para simplificar la integración y desacoplar la lógica de negocio.
+
+### ¿Por qué usar esta arquitectura?
+
+**Flujo Tradicional**:
+```
+Controller → Gateway → Guardar en BD → Redirigir → Callback → Validar → Actualizar BD → Email
+         └─ Mucho código repetitivo ─┘         └─ Lógica acoplada ─┘
+```
+
+**Nuevo Flujo con PSR**:
+```
+Controller → TransactionManager → [Caché] → [Evento: TransactionCreated]
+                                                    └─→ Listener: Guardar en BD
+                                                    └─→ Listener: Log
+Callback → TransactionManager → [Evento: TransactionConfirmed]
+                                      └─→ Listener: Actualizar orden
+                                      └─→ Listener: Enviar email
+                                      └─→ Listener: Procesar pedido
+```
+
+### Ejemplo Rápido
+
+```php
+use Raion\Gateways\Selector;
+use Raion\Gateways\Models\Transaction;
+use Raion\Gateways\Events\TransactionConfirmedEvent;
+
+// 1. Crear TransactionManager con caché y eventos
+$manager = Selector::CreateTransactionManager($cache, $eventDispatcher);
+
+// 2. Registrar listener para confirmación
+$eventDispatcher->addListener(TransactionConfirmedEvent::class, function($event) {
+    // Actualizar orden en BD, enviar email, etc.
+    OrderProcessor::complete($event->getOrderId());
+});
+
+// 3. Crear transacción (automáticamente cachea y dispara evento)
+$response = $manager->createTransaction($gateway, $transaction);
+
+// 4. En callback: confirmar (automáticamente dispara eventos)
+$manager->confirmTransaction($gateway, $transaction, $callbackData);
+```
+
+**Beneficios**:
+- ✅ **Menos código**: El manager maneja caché y eventos automáticamente
+- ✅ **Más testeable**: Fácil de mockear caché y eventos
+- ✅ **Desacoplado**: Lógica de negocio en listeners separados
+- ✅ **Retrocompatible**: La API anterior sigue funcionando
+
+📚 **Documentación completa**: [USAGE_PSR.md](USAGE_PSR.md)  
+💻 **Ejemplo funcional**: [exampleWithPSR.php](exampleWithPSR.php)
 
 ## 🔧 Configuración
 
@@ -160,8 +218,12 @@ if ($token) {
 
 ## 📚 Documentación Completa
 
+- **[USAGE_PSR.md](USAGE_PSR.md)** - 🆕 Guía completa de Caché y Eventos PSR
+- **[exampleWithPSR.php](exampleWithPSR.php)** - 🆕 Ejemplo con TransactionManager
+- [CONFIG_KEYS.md](CONFIG_KEYS.md) - Referencia de claves de configuración
 - [CONFIG_EXAMPLE.md](CONFIG_EXAMPLE.md) - Guía completa de configuración
 - [example.php](example.php) - Ejemplos de uso para cada gateway
+- [exampleController.php](exampleController.php) - Ejemplo de integración en CodeIgniter
 
 ## 🔐 Seguridad
 

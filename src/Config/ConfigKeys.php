@@ -132,6 +132,18 @@ class ConfigKeys
      */
     public const BASE_URL = 'BASE_URL';
 
+    /**
+     * Cache TTL - Time to live for cached transactions (in seconds)
+     * Default: 3600 (1 hour)
+     */
+    public const CACHE_TTL = 'CACHE_TTL';
+
+    /**
+     * Cache Prefix - Prefix for cache keys
+     * Default: raion_payment_
+     */
+    public const CACHE_PREFIX = 'CACHE_PREFIX';
+
     // ========================================
     // Environment Variable Mapping
     // ========================================
@@ -161,6 +173,8 @@ class ConfigKeys
             self::MERCADOPAGO_PENDING_URL => 'MERCADOPAGO_PENDING_URL',
             self::MERCADOPAGO_RUNTIME_ENVIRONMENT => 'MERCADOPAGO_RUNTIME_ENVIRONMENT',
             self::MERCADOPAGO_REDIRECT_URL => 'MERCADOPAGO_REDIRECT_URL',
+            self::CACHE_TTL => 'CACHE_TTL',
+            self::CACHE_PREFIX => 'CACHE_PREFIX',
         ];
     }
 }

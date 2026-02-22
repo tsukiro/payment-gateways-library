@@ -205,4 +205,17 @@ class WebpayGateway implements GatewayInterface
             throw TransactionException::statusRetrievalFailed('Webpay', $token, $e);
         }
     }
+
+    /**
+     * Confirm a transaction (unified method for TransactionManager)
+     *
+     * @param string $token Transaction token
+     * @return array Confirmation data
+     * @throws TransactionException
+     */
+    public function confirmTransaction(string $token): array
+    {
+        // Webpay uses commit to confirm, which is already called in getTransactionInProcess
+        return $this->getTransactionInProcess($token);
+    }
 }
