@@ -26,9 +26,9 @@ class MercadoPagoCallbackProcessor implements CallbackProcessorInterface
     public function extractToken(array $request): ?string
     {
         // MercadoPago can send different parameters
-        return $request['payment_id'] 
+        return $request['preference_id'] 
+            ?? $request['payment_id'] 
             ?? $request['collection_id'] 
-            ?? $request['preference_id'] 
             ?? null;
     }
 
