@@ -12,6 +12,7 @@ use Raion\Gateways\Exceptions\TransactionException;
 use Raion\Gateways\Validation\TransactionValidator;
 
 use MercadoPago\Client\Common\RequestOptions;
+use MercadoPago\Client\Payment\PaymentClient;
 use MercadoPago\Client\Preference\PreferenceClient;
 use MercadoPago\Exceptions\MPApiException;
 use MercadoPago\MercadoPagoConfig;
@@ -181,14 +182,23 @@ class MercadoPagoGateway implements GatewayInterface
      */
     public function confirmTransaction(string $token): array
     {
+        list($paymentId, $preferenceId, $collectionId) = explode('|', $token); // Extract preference ID if token contains multiple parts
         try {
-            $client = new PreferenceClient();
-            $preference = $client->get($token);
-            
+            $preferenceClient = new PreferenceClient();
+            $preference = $preferenceClient->get($preferenceId);
+            $paymentClient = new PaymentClient();
+            $payment = $paymentClient->get($paymentId); // Get payment details using payment ID
+            if (!$preference || !$payment) {
+                throw TransactionException::statusRetrievalFailed('MercadoPago', "Preference or Payment not found for token: $token");
+            }
+
+            if ($payment->external_reference !== $preference->external_reference) {
+                throw TransactionException::statusRetrievalFailed('MercadoPago', "External reference mismatch for token: $token");
+            }
             // Convert preference object to array for consistency
             return [
                 'id' => $preference->id,
-                'status' => 'pending', // MercadoPago requires additional payment info to get real status
+                'status' => $payment->status, // MercadoPago requires additional payment info to get real status
                 'external_reference' => $preference->external_reference,
                 'init_point' => $preference->init_point,
                 'date_created' => $preference->date_created ?? null,
