@@ -188,7 +188,13 @@ class MercadoPagoGateway implements GatewayInterface
             $preference = $preferenceClient->get($preferenceId);
             $paymentClient = new PaymentClient();
             $payment = $paymentClient->get($paymentId); // Get payment details using payment ID
+            if (!$preference || !$payment) {
+                throw TransactionException::statusRetrievalFailed('MercadoPago', "Preference or Payment not found for token: $token");
+            }
 
+            if ($payment->external_reference !== $preference->external_reference) {
+                throw TransactionException::statusRetrievalFailed('MercadoPago', "External reference mismatch for token: $token");
+            }
             // Convert preference object to array for consistency
             return [
                 'id' => $preference->id,
