@@ -180,14 +180,14 @@ class MercadoPagoGateway implements GatewayInterface
      * @return array Confirmation data
      * @throws TransactionException
      */
-    public function confirmTransaction(string $token): array
+    public function confirmTransaction(string $token, ?array $data = []): array
     {
-        list($paymentId, $preferenceId, $collectionId) = explode('|', $token); // Extract preference ID if token contains multiple parts
+        //list($paymentId, $preferenceId, $collectionId) = explode('|', $token); // Extract preference ID if token contains multiple parts
         try {
             $preferenceClient = new PreferenceClient();
-            $preference = $preferenceClient->get($preferenceId);
+            $preference = $preferenceClient->get($token);
             $paymentClient = new PaymentClient();
-            $payment = $paymentClient->get($paymentId); // Get payment details using payment ID
+            $payment = $paymentClient->get($data['payment_id'] ?? null); // Get payment details using payment ID
             if (!$preference || !$payment) {
                 throw TransactionException::statusRetrievalFailed('MercadoPago', "Preference or Payment not found for token: $token");
             }

@@ -290,7 +290,7 @@ class FlowGateway implements GatewayInterface
      * @return array Confirmation data
      * @throws TransactionException
      */
-    public function confirmTransaction(string $token): array
+    public function confirmTransaction(string $token, ?array $data = []): array
     {
         return $this->getTransactionInProcess($token);
     }
