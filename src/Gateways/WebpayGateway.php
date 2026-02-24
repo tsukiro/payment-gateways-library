@@ -213,7 +213,7 @@ class WebpayGateway implements GatewayInterface
      * @return array Confirmation data
      * @throws TransactionException
      */
-    public function confirmTransaction(string $token): array
+    public function confirmTransaction(string $token, ?array $data = []): array
     {
         // Webpay uses commit to confirm, which is already called in getTransactionInProcess
         return $this->getTransactionInProcess($token);

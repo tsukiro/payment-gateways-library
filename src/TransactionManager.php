@@ -183,7 +183,7 @@ class TransactionManager
     ): Transaction {
         try {
             // Get confirmation from gateway
-            $confirmationData = $gateway->confirmTransaction($transaction->getToken());
+            $confirmationData = $gateway->confirmTransaction($transaction->getToken(), $callbackData);
 
             // Determine if successful based on gateway response
             $isSuccessful = $this->isConfirmationSuccessful($gateway->name(), $confirmationData);
